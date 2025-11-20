@@ -24,9 +24,9 @@ const storage = {
   getSettings: (): AppSettings => {
     try {
       const saved = localStorage.getItem('settings');
-      return saved ? JSON.parse(saved) : { fontSize: 18, darkMode: false, autoScrollSpeed: 0 };
+      return saved ? JSON.parse(saved) : { fontSize: 18, darkMode: false, autoScrollSpeed: 2 };
     } catch {
-      return { fontSize: 18, darkMode: false, autoScrollSpeed: 0 };
+      return { fontSize: 18, darkMode: false, autoScrollSpeed: 2 };
     }
   },
   saveSettings: (settings: AppSettings) => {
@@ -47,7 +47,7 @@ const Header = ({
   rightAction?: React.ReactNode; 
   transparent?: boolean;
 }) => (
-  <div className={`h-16 flex items-center justify-between px-4 sticky top-0 z-30 transition-all duration-300 ${transparent ? 'bg-transparent' : 'bg-holy-cream/95 dark:bg-warm-dark/95 backdrop-blur-md border-b border-stone-200/50 dark:border-stone-700/50 shadow-sm'}`}>
+  <div className={`h-16 pt-safe flex items-center justify-between px-4 sticky top-0 z-30 transition-all duration-300 ${transparent ? 'bg-transparent' : 'bg-holy-cream/95 dark:bg-warm-dark/95 backdrop-blur-md border-b border-stone-200/50 dark:border-stone-700/50 shadow-sm'}`}>
     <div className="flex items-center gap-3">
       {onBack ? (
         <button onClick={onBack} className="p-2 rounded-full hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors text-holy-navy dark:text-holy-gold">
@@ -83,7 +83,7 @@ const Navigation = ({
   ];
 
   return (
-    <div className="h-[5.5rem] bg-white/95 dark:bg-stone-900/95 backdrop-blur-lg border-t border-stone-200 dark:border-stone-800 fixed bottom-0 w-full flex justify-around items-start pt-3 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-safe">
+    <div className="bg-white/95 dark:bg-stone-900/95 backdrop-blur-lg border-t border-stone-200 dark:border-stone-800 fixed bottom-0 w-full flex justify-around items-start pt-3 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-safe min-h-[5.5rem]">
       {navItems.map((item) => {
         const isActive = current === item.view;
         return (
@@ -148,13 +148,13 @@ const HomeView = ({
   return (
     <div className="pb-28 animate-fade-in min-h-screen">
       {/* Decorative Header BG */}
-      <div className="relative h-56 bg-holy-navy dark:bg-black overflow-hidden rounded-b-[3rem] shadow-xl mb-6 group">
+      <div className="relative h-64 bg-holy-navy dark:bg-black overflow-hidden rounded-b-[3rem] shadow-xl mb-6 group pt-safe">
          <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-holy-gold via-transparent to-transparent" />
          <div className="absolute top-0 right-0 p-10 opacity-10 transform group-hover:rotate-6 transition-transform duration-1000">
             <IconCross className="w-56 h-56 text-white rotate-12" />
          </div>
          
-         <div className="absolute bottom-12 left-8 z-10">
+         <div className="absolute bottom-16 left-8 z-10">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-[1px] w-8 bg-holy-gold" />
               <p className="text-holy-gold font-bold text-xs tracking-[0.2em] uppercase">Daily Devotion</p>
@@ -191,7 +191,7 @@ const HomeView = ({
                 key={cat} 
                 onClick={() => onCategorySelect(cat)}
                 style={{ animationDelay: `${i * 100}ms` }}
-                className="animate-slide-up snap-start shrink-0 w-36 h-36 rounded-3xl bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 shadow-sm flex flex-col items-center justify-center p-4 gap-3 hover:border-holy-gold hover:shadow-lg transition-all group"
+                className="animate-slide-up snap-start shrink-0 w-36 h-36 rounded-3xl bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 shadow-sm flex flex-col items-center justify-center p-4 gap-3 hover:border-holy-gold hover:shadow-lg transition-all group active:scale-95"
               >
                 <div className="w-12 h-12 rounded-full bg-stone-50 dark:bg-stone-700 flex items-center justify-center text-holy-gold group-hover:bg-holy-gold group-hover:text-white transition-colors">
                   <IconMusic className="w-6 h-6" />
@@ -326,7 +326,7 @@ const SettingsView = ({
         </button>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-8">
         <div className="flex justify-between mb-4">
            <span className="font-serif text-xl text-holy-navy dark:text-paper-white">Font Size</span>
            <span className="text-holy-gold font-bold font-mono">{settings.fontSize}px</span>
@@ -345,6 +345,22 @@ const SettingsView = ({
              Amazing grace! How sweet the sound...
            </p>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex justify-between mb-4">
+           <span className="font-serif text-xl text-holy-navy dark:text-paper-white">Auto Scroll Speed</span>
+           <span className="text-holy-gold font-bold font-mono">{settings.autoScrollSpeed}x</span>
+        </div>
+        <input 
+          type="range" 
+          min="0" 
+          max="5" 
+          step="1"
+          value={settings.autoScrollSpeed}
+          onChange={(e) => onUpdate({ ...settings, autoScrollSpeed: parseInt(e.target.value) })}
+          className="w-full h-2 bg-stone-200 dark:bg-stone-600 rounded-lg appearance-none cursor-pointer accent-holy-gold hover:accent-yellow-600 transition-all"
+        />
       </div>
     </section>
 
@@ -383,27 +399,50 @@ const LyricsView = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Auto-scroll logic
+  // Smooth Auto-scroll logic with RequestAnimationFrame
   useEffect(() => {
-    let interval: any;
-    if (isAutoScrolling && scrollRef.current) {
-      interval = setInterval(() => {
+    let animationFrameId: number;
+    let lastTimestamp = 0;
+    
+    const scroll = (timestamp: number) => {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      
+      // Throttle to ~60fps
+      const deltaTime = timestamp - lastTimestamp;
+      if (deltaTime >= 16) {
         if (scrollRef.current) {
            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-           if (scrollTop + clientHeight >= scrollHeight - 10) {
+           
+           // Stop if reached bottom
+           if (scrollTop + clientHeight >= scrollHeight - 1) {
              setIsAutoScrolling(false);
            } else {
-             scrollRef.current.scrollTop += 1;
+             // Calculate pixel movement based on speed setting
+             // Speed 0 = 0px, Speed 1 = 0.5px, Speed 5 = 2.5px per frame
+             const moveAmount = settings.autoScrollSpeed === 0 ? 0 : (0.3 * settings.autoScrollSpeed);
+             if (moveAmount > 0) {
+                scrollRef.current.scrollTop += moveAmount;
+             }
            }
         }
-      }, 40); 
+        lastTimestamp = timestamp;
+      }
+      
+      if (isAutoScrolling) {
+        animationFrameId = requestAnimationFrame(scroll);
+      }
+    };
+
+    if (isAutoScrolling && settings.autoScrollSpeed > 0) {
+      animationFrameId = requestAnimationFrame(scroll);
     }
-    return () => clearInterval(interval);
-  }, [isAutoScrolling]);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isAutoScrolling, settings.autoScrollSpeed]);
 
   // Audio simulation logic
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval>;
     if (isPlaying) {
       interval = setInterval(() => {
         setProgress(prev => {
@@ -436,7 +475,7 @@ const LyricsView = ({
     <div className="h-full flex flex-col bg-paper-white dark:bg-warm-dark animate-slide-up relative z-40">
       
       {/* Action Bar (Floating) */}
-      <div className="absolute bottom-10 right-6 flex flex-col gap-4 z-50">
+      <div className="absolute bottom-10 right-6 flex flex-col gap-4 z-50 pb-safe">
         <button 
           onClick={() => setIsAutoScrolling(!isAutoScrolling)}
           className={`w-14 h-14 rounded-full shadow-xl border border-stone-100 dark:border-stone-600 flex items-center justify-center transition-all duration-300 ${isAutoScrolling ? 'bg-holy-gold text-white animate-pulse' : 'bg-white dark:bg-stone-800 text-holy-navy dark:text-stone-200'}`}
@@ -466,7 +505,7 @@ const LyricsView = ({
       {/* Scrollable Content */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto lyrics-scroll px-6 pb-40 pt-6"
+        className="flex-1 overflow-y-auto lyrics-scroll px-6 pb-48 pt-6 overscroll-contain"
       >
         {/* Song Meta */}
         <div className="text-center mb-12 border-b-2 border-stone-100 dark:border-stone-700/50 pb-8 relative">
@@ -578,7 +617,6 @@ export default function App() {
   };
 
   const headerProps = getHeaderProps();
-  const isImmersive = view === ViewState.LYRICS || view === ViewState.HOME;
 
   return (
     <div className={`h-full flex flex-col ${settings.darkMode ? 'dark' : ''}`}>
@@ -593,7 +631,7 @@ export default function App() {
            <Header {...headerProps} />
         )}
 
-        <main className="flex-1 overflow-y-auto relative scrollbar-hide bg-transparent">
+        <main className="flex-1 overflow-y-auto relative scrollbar-hide bg-transparent overscroll-contain">
           {view === ViewState.HOME && (
             <HomeView 
               onCategorySelect={handleCategorySelect}
